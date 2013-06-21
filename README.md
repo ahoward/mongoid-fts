@@ -1,53 +1,108 @@
 NAME
+
   mongoid-fts.rb
 
 DESCRIPTION
+
   enable mongodb's new fulltext simply and quickly on your mongoid models, including pagination.
+
+
+INSTALL
+
+````ruby
+
+  gem 'mongoid-fts'
+
+````
+
+````bash
+
+# required
+
+  ~> bundle install
+
+  ~> rake db:mongoid:created_indexes
+
+# optional (this is done automatically)
+
+  ~> rails runner 'Mongoid::FTS.enable!'
+
+````
 
 SYNOPSIS
 
 ````ruby
 
+# use the mixin method on your models to give them a 'search' method.  fts
+# will attempt to guess which fields you mean to search.  title will be
+# weighted most highly, then the array of keywords, then the fulltext of the
+# model
+#
   class A
     include Mongoid::Document
     include Mongoid::FTS
 
     field(:title)
-    field(:body)
-
-    def to_search
-      {:title => title, :fulltext => body}
-    end
+    field(:keywords, :type => Array)
+    field(:fulltext)
   end
 
+# if your fields are named like this you can certain override what's indexed
+#
 
   class B
     include Mongoid::Document
     include Mongoid::FTS
 
-    field(:title)
-    field(:body)
+    field(:a)
+    field(:b, :type => Array, :default => [])
+    field(:c)
 
     def to_search
-      {:title => title, :fulltext => body}
+      {:title => a, :keywords => (b + ['foobar']), :fulltext => c}
     end
   end
 
 
+# after this searching is pretty POLS
+#
+
   A.create!(:title => 'foo', :body => 'cats')
-  A.create!(:title => 'bar', :body => 'dogs')
+  A.create!(:title => 'foo', :body => 'cat')
 
-  B.create!(:title => 'foo', :body => 'cats')
-  B.create!(:title => 'bar', :body => 'dogs')
+  p A.search('cat').size #=> 2
 
-  p FTS.search('cat', :models => [A, B])
-  p FTS.search('dog', :models => [A, B])
+# you can to cross-model searches like so
+#
+  p Mongoid::FTS.search('cat', :models => [A, B])
+  p Mongoid::FTS.search('dog', :models => [A, B])
 
-  p A.search('cat')
-  p B.search('cat')
-  p A.search('dog')
-  p B.search('dog')
+# pagination is supported with an ugly hack
 
-  p A.search('cat dog').page(1).per(1)
+  A.search('cats').page(10).per(3)
+
+# or 
+
+  A.search('cats').paginate(:page => 10, :per => 3)
+
+
+# handy to know
+
+  Mongoid::FTS::Index.rebuild! # re-index every currently known object - not super effecient
+
+  Mongoid::FTS::Index.reset!   # completely drop/create indexes - lose all objects
 
 ````
+
+the implementation is has only a work around for pagination, see
+
+  https://groups.google.com/forum/#!topic/mongodb-user/2hUgOAN4KKk
+
+for details
+
+
+regardless, the *interface* of this mixin is uber simple and should be quite
+future proof.  as the mongodb teams moves search forward i'll track the new
+implementation and preserve the current interface.  until it settles down,
+however, i'll resist adding new features.
+

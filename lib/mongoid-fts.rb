@@ -1,7 +1,7 @@
 module Mongoid
   module FTS
   #
-    const_set(:Version, '0.0.1') unless const_defined?(:Version)
+    const_set(:Version, '0.4.2') unless const_defined?(:Version)
 
     class << FTS
       def version
@@ -524,7 +524,7 @@ module Mongoid
 
       begin
         session = Mongoid::Sessions.default
-        session.with(database: :admin).command({ setParameter: 1, textFTSEnabled: true })
+        session.with(database: :admin).command({ setParameter: 1, textSearchEnabled: true })
       rescue Object => e
         unless e.is_a?(Mongoid::Errors::NoSessionsConfig)
           warn "failed to enable search with #{ e.class }(#{ e.message })"
@@ -538,10 +538,10 @@ module Mongoid
   if defined?(Rails)
     class FTS::Engine < ::Rails::Engine
       paths['app/models'] = ::File.dirname(__FILE__)
-    end
 
-    Rails.configuration.after_initialize do
-      Mongoid::FTS.enable!(:warn => true)
+      config.after_initialize do
+        Mongoid::FTS.enable!(:warn => true)
+      end
     end
   else
     Mongoid::FTS.enable!(:warn => true)
