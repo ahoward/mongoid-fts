@@ -1,8 +1,8 @@
 This.name =
-  "Mongoid::Haystack"
+  "Mongoid::FTS"
 
 This.synopsis =
-  "a mongoid 3 zero-config, zero-integration, POLS pure mongo fulltext solution"
+  "enable mongodb's new fulltext simply and quickly on your mongoid models, including pagination."
 
 This.rubyforge_project = 'codeforpeople'
 This.author            = "Ara T. Howard"

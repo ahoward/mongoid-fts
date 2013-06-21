@@ -1,7 +1,7 @@
 module Mongoid
   module FTS
   #
-    const_set(:Version, '0.4.2') unless const_defined?(:Version)
+    const_set(:Version, '0.0.1') unless const_defined?(:Version)
 
     class << FTS
       def version
@@ -58,9 +58,7 @@ module Mongoid
 
   #
     def FTS.search(*args)
-      options = args.extract_options!.to_options!
-
-      args.push(options)
+      options = Map.options_for(args)
 
       _searches = FTS._search(*args)
 
@@ -68,7 +66,7 @@ module Mongoid
     end
 
     def FTS._search(*args)
-      options = args.extract_options!.to_options!
+      options = Map.options_for!(args)
 
       search = args.join(' ')
 
@@ -76,7 +74,7 @@ module Mongoid
       limit  = [Integer(options.delete(:limit) || 128), 1].max
       models = [options.delete(:models), options.delete(:model)].flatten.compact
 
-      models = FTS.models if models.blank?
+      models = FTS.models if models.empty?
 
       _searches =
         models.map do |model|
@@ -135,7 +133,7 @@ module Mongoid
       end
 
       def paginate(*args)
-        options = args.extract_options!.to_options!
+        options = Map.options_for!(args)
 
         page = Integer(args.shift || options[:page] || @page)
         per = Integer(args.shift || options[:per] || options[:size] || @per)
@@ -157,7 +155,7 @@ module Mongoid
         if args.empty?
           return @page
         else
-          options = args.extract_options!.to_options!
+          options = Map.options_for!(args)
           page = args.shift || options[:page]
           options[:page] = page
           paginate(options)
@@ -168,7 +166,7 @@ module Mongoid
         if args.empty?
           return @per
         else
-          options = args.extract_options!.to_options!
+          options = Map.options_for!(args)
           per = args.shift || options[:per]
           options[:per] = per
           paginate(options)
@@ -290,19 +288,19 @@ module Mongoid
       def normalize!
         index = self
 
-        unless index.keywords.blank?
+        unless [index.keywords].join.strip.empty?
           index.keywords = FTS.list_of_strings(index.keywords)
         end
 
-        unless index.title.blank?
+        unless [index.title].join.strip.empty?
           index.title = index.title.to_s.strip
         end
 
-        unless index.keywords.blank?
+        unless [index.keywords].join.strip.empty?
           index.keywords = index.keywords.map{|keyword| keyword.strip}
         end
 
-        unless index.fulltext.blank?
+        unless [index.fulltext].join.strip.empty?
           index.fulltext = index.fulltext.to_s.strip
         end
 
@@ -428,7 +426,7 @@ module Mongoid
         @code ||= proc do
           class << self
             def search(*args, &block)
-              args.push(options = args.extract_options!.to_options!)
+              options = Map.options_for(args)
 
               options[:model] = self
 
@@ -436,7 +434,7 @@ module Mongoid
             end
 
             def _search(*args, &block)
-              args.push(options = args.extract_options!.to_options!)
+              options = Map.options_for(args)
 
               options[:model] = self
 
@@ -517,15 +515,21 @@ module Mongoid
       models
     end
 
-    def FTS.enable!
-      session = Mongoid::Sessions.default
-      session.with(database: :admin).command({ setParameter: 1, textFTSEnabled: true })
-    end
+    def FTS.enable!(*args)
+      options = Map.options_for!(args)
 
-    begin
-      FTS.enable!
-    rescue Object => e
-      warn "failed to enable search with #{ e.class }(#{ e.message })"
+      unless options.has_key?(:warn)
+        options[:warn] = true
+      end
+
+      begin
+        session = Mongoid::Sessions.default
+        session.with(database: :admin).command({ setParameter: 1, textFTSEnabled: true })
+      rescue Object => e
+        unless e.is_a?(Mongoid::Errors::NoSessionsConfig)
+          warn "failed to enable search with #{ e.class }(#{ e.message })"
+        end
+      end
     end
   end
 
@@ -535,6 +539,12 @@ module Mongoid
     class FTS::Engine < ::Rails::Engine
       paths['app/models'] = ::File.dirname(__FILE__)
     end
+
+    Rails.configuration.after_initialize do
+      Mongoid::FTS.enable!(:warn => true)
+    end
+  else
+    Mongoid::FTS.enable!(:warn => true)
   end
 end
 
