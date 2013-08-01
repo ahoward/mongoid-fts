@@ -1,7 +1,7 @@
 module Mongoid
   module FTS
   #
-    const_set(:Version, '0.4.2') unless const_defined?(:Version)
+    const_set(:Version, '0.4.3') unless const_defined?(:Version)
 
     class << FTS
       def version
@@ -161,6 +161,8 @@ module Mongoid
           paginate(options)
         end
       end
+
+      alias_method(:current_page, :page)
 
       def per(*args)
         if args.empty?
@@ -539,7 +541,7 @@ module Mongoid
     class FTS::Engine < ::Rails::Engine
       paths['app/models'] = ::File.dirname(__FILE__)
 
-      config.after_initialize do
+      config.before_initialize do
         Mongoid::FTS.enable!(:warn => true)
       end
     end
