@@ -1,7 +1,7 @@
 module Mongoid
   module FTS
   #
-    const_set(:Version, '0.4.3') unless const_defined?(:Version)
+    const_set(:Version, '0.4.4') unless const_defined?(:Version)
 
     class << FTS
       def version
@@ -55,6 +55,8 @@ module Mongoid
       nil
     end
 
+  #
+    class Error < ::StandardError; end
 
   #
     def FTS.search(*args)
@@ -361,12 +363,29 @@ module Mongoid
           :fulltext     => fulltext
         }
 
-        new(conditions).upsert
+        begin
+          new(conditions).upsert
+        rescue Object => e
+          warn "#{ e.message } (#{ e.class })"
 
-        where(conditions).first.tap do |index|
-          if index
-            index.update_attributes(attributes)
+          4.times do
+            begin
+              break if create(conditions)
+            rescue Object => e
+              warn "#{ e.message } (#{ e.class })"
+              nil
+            end
           end
+        end
+
+      # FIXME - go BOOM here if none found...
+      #
+        index = where(conditions).first
+
+        if index
+          index.update_attributes(attributes)
+        else
+          raise Error.new("failed to create index for #{ conditions.inspect }")
         end
       end
 
@@ -451,6 +470,8 @@ module Mongoid
           after_destroy do |model|
             FTS::Index.remove(model) rescue nil
           end
+
+          has_one(:search_index, :as => :context, :class_name => '::Mongoid::FTS::Index')
         end
       end
 
