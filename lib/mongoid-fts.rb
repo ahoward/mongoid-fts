@@ -1,7 +1,7 @@
 module Mongoid
   module FTS
   #
-    const_set(:Version, '0.4.4') unless const_defined?(:Version)
+    const_set(:Version, '0.5.0') unless const_defined?(:Version)
 
     class << FTS
       def version
@@ -447,17 +447,21 @@ module Mongoid
         @code ||= proc do
           class << self
             def search(*args, &block)
-              options = Map.options_for(args)
+              options = Map.options_for!(args)
 
               options[:model] = self
+
+              args.push(options)
 
               FTS.search(*args, &block)
             end
 
             def _search(*args, &block)
-              options = Map.options_for(args)
+              options = Map.options_for!(args)
 
               options[:model] = self
+
+              args.push(options)
 
               FTS.search(*args, &block)
             end
