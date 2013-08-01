@@ -94,7 +94,7 @@ SYNOPSIS
 
 ````
 
-the implementation is has only a work around for pagination, see
+the implementation has a temporary work around for pagination, see
 
   https://groups.google.com/forum/#!topic/mongodb-user/2hUgOAN4KKk
 
