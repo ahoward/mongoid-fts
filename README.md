@@ -21,7 +21,7 @@ INSTALL
 
   ~> bundle install
 
-  ~> rake db:mongoid:created_indexes
+  ~> rake db:mongoid:create_indexes
 
 # optional (this is done automatically)
 
