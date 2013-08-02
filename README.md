@@ -6,14 +6,15 @@ NAME
 DESCRIPTION
 ------------------
 
-  enable mongodb's new fulltext simply and quickly on your mongoid models.
+enable mongodb's new fulltext simply and quickly on your mongoid models.
 
-  supports
-    * pagination
-    * strict literal searching (including stopwords)
-    * cross models searching
-    * index is automatically kept in sync
-    * customize ranking with #to_search
+supports
+
+* pagination
+* strict literal searching (including stopwords)
+* cross models searching
+* index is automatically kept in sync
+* customize ranking with #to_search
 
 INSTALL
 ------------------
