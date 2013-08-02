@@ -1,8 +1,10 @@
 NAME
+------------------
 
   mongoid-fts.rb
 
 DESCRIPTION
+------------------
 
   enable mongodb's new fulltext simply and quickly on your mongoid models.
 
@@ -14,6 +16,7 @@ DESCRIPTION
     * customize ranking with #to_search
 
 INSTALL
+------------------
 
 ````ruby
 
@@ -36,6 +39,7 @@ INSTALL
 ````
 
 SYNOPSIS
+------------------
 
 ````ruby
 
