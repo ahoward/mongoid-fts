@@ -3,7 +3,7 @@
 
 Gem::Specification::new do |spec|
   spec.name = "mongoid-fts"
-  spec.version = "0.5.0"
+  spec.version = "0.5.1"
   spec.platform = Gem::Platform::RUBY
   spec.summary = "mongoid-fts"
   spec.description = "enable mongodb's new fulltext simply and quickly on your mongoid models, including pagination."

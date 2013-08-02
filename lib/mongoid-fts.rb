@@ -1,7 +1,7 @@
 module Mongoid
   module FTS
   #
-    const_set(:Version, '0.5.0') unless const_defined?(:Version)
+    const_set(:Version, '0.5.1') unless const_defined?(:Version)
 
     class << FTS
       def version
@@ -70,7 +70,10 @@ module Mongoid
     def FTS._search(*args)
       options = Map.options_for!(args)
 
-      search = args.join(' ')
+      search   = args.join(' ')
+      words    = search.strip.split(/\s+/)
+      literals = FTS.literals_for(*words)
+      search   = [search, *literals].join(' ')
 
       text   = options.delete(:text) || Index.default_collection_name.to_s
       limit  = [Integer(options.delete(:limit) || 128), 1].max
@@ -259,18 +262,20 @@ module Mongoid
 
       belongs_to(:context, :polymorphic => true)
 
+      field(:literal_title, :type => String)
       field(:title, :type => String)
+      field(:literal_keywords, :type => Array)
       field(:keywords, :type => Array)
       field(:fulltext, :type => String)
 
       index(
-        {:context_type => 1, :title => 'text', :keywords => 'text', :fulltext => 'text'},
-        {:weights => { :title => 100, :keywords => 50, :fulltext => 1 }, :name => 'search_index'}
+        {:context_type => 1, :context_id => 1},
+        {:unique => true, :sparse => true}
       )
 
       index(
-        {:context_type => 1, :context_id => 1},
-        {:unique => true, :sparse => true}
+        {:context_type => 1, :literal_title => 'text', :title => 'text', :literal_keywords => 'text', :keywords => 'text', :fulltext => 'text'},
+        {:weights => { :literal_title => 100, :title => 90, :literal_keywords => 60, :keywords => 50, :fulltext => 10 }, :name => 'search_index'}
       )
 
       before_validation do |index|
@@ -278,6 +283,10 @@ module Mongoid
       end
 
       before_upsert do |index|
+        index.normalize
+      end
+
+      before_save do |index|
         index.normalize
       end
 
@@ -363,30 +372,34 @@ module Mongoid
           :fulltext     => fulltext
         }
 
-        begin
-          new(conditions).upsert
-        rescue Object => e
-          warn "#{ e.message } (#{ e.class })"
+        index = nil
+        n = 3
 
-          4.times do
-            begin
-              break if create(conditions)
-            rescue Object => e
-              warn "#{ e.message } (#{ e.class })"
-              nil
-            end
+        n.times do |i|
+          index = where(conditions).first
+          break if index
+
+          begin
+            index = create!(conditions)
+            break if index
+          rescue Object
+            nil
           end
+
+          sleep(rand) if i < (n - 1)
         end
 
-      # FIXME - go BOOM here if none found...
-      #
-        index = where(conditions).first
-
         if index
-          index.update_attributes(attributes)
+          begin
+            index.update_attributes!(attributes)
+          rescue Object
+            raise Error.new("failed to update index for #{ conditions.inspect }")
+          end
         else
           raise Error.new("failed to create index for #{ conditions.inspect }")
         end
+
+        index
       end
 
       def Index.remove(model)
@@ -416,25 +429,51 @@ module Mongoid
           to_search[:title] =
             %w( title ).map do |attr|
               model.send(attr) if model.respond_to?(attr)
-            end.compact.join(' ')
+            end
 
           to_search[:keywords] =
             %w( keywords tags ).map do |attr|
               model.send(attr) if model.respond_to?(attr)
-            end.compact
+            end
 
           to_search[:fulltext] =
             %w( fulltext text content body description ).map do |attr|
               model.send(attr) if model.respond_to?(attr)
-            end.compact.join(' ')
+            end
         end
 
         unless %w( title keywords fulltext ).detect{|key| to_search.has_key?(key)}
           raise ArgumentError, "you need to define #{ model }#to_search"
         end
 
+        title = FTS.normalized_array(to_search[:title])
+        keywords = FTS.normalized_array(to_search[:keywords])
+        fulltext = FTS.normalized_array(to_search[:fulltext])
+
+        to_search[:literal_title] = FTS.literals_for(title).join(' ').strip
+        to_search[:title] = title.join(' ').strip
+
+        to_search[:literal_keywords] = FTS.literals_for(keywords).join(' ').strip
+        to_search[:keywords] = keywords.join(' ').strip
+
+        to_search[:fulltext] = fulltext.join(' ').strip
+
         to_search
       end
+    end
+
+    def FTS.normalized_array(*array)
+      array.flatten.map{|_| _.to_s.strip}.select{|_| !_.empty?}
+    end
+
+    def FTS.literals_for(*words)
+      words = words.join(' ').strip.split(/\s+/)
+
+      words.map do |word|
+        next if word.empty?
+        without_delimeters = word.to_s.scan(/[0-9a-zA-Z]/).join
+        literal = "__#{ without_delimeters }__"
+      end.compact
     end
 
     def FTS.index
@@ -485,6 +524,11 @@ module Mongoid
             super
           ensure
             other.module_eval(&Mixin.code)
+
+            FTS.models.dup.each do |model|
+              FTS.models.delete(model) if model.name == other.name
+            end
+
             FTS.models.push(other)
             FTS.models.uniq!
           end
