@@ -4,8 +4,14 @@ NAME
 
 DESCRIPTION
 
-  enable mongodb's new fulltext simply and quickly on your mongoid models, including pagination.
+  enable mongodb's new fulltext simply and quickly on your mongoid models.
 
+  supports
+    * pagination
+    * strict literal searching (including stopwords)
+    * cross models searching
+    * index is automatically kept in sync
+    * customize ranking with #to_search
 
 INSTALL
 
@@ -59,7 +65,7 @@ SYNOPSIS
     field(:c)
 
     def to_search
-      {:title => a, :keywords => (b + ['foobar']), :fulltext => c}
+      {:literals => [id, sku], :title => a, :keywords => (b + ['foobar']), :fulltext => c}
     end
   end
 
@@ -92,6 +98,10 @@ SYNOPSIS
 
   Mongoid::FTS::Index.reset!   # completely drop/create indexes - lose all objects
 
+  Mongoid::FTS.index(model)    # add an object to the fts index
+
+  Mongoid::FTS.unindex(model)  # remove and object from the fts index
+
 ````
 
 the implementation has a temporary work around for pagination, see
@@ -99,7 +109,6 @@ the implementation has a temporary work around for pagination, see
   https://groups.google.com/forum/#!topic/mongodb-user/2hUgOAN4KKk
 
 for details
-
 
 regardless, the *interface* of this mixin is uber simple and should be quite
 future proof.  as the mongodb teams moves search forward i'll track the new

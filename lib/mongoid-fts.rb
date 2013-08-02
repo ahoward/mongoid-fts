@@ -1,7 +1,7 @@
 module Mongoid
   module FTS
   #
-    const_set(:Version, '0.5.1') unless const_defined?(:Version)
+    const_set(:Version, '1.0.0') unless const_defined?(:Version)
 
     class << FTS
       def version
@@ -73,7 +73,7 @@ module Mongoid
       search   = args.join(' ')
       words    = search.strip.split(/\s+/)
       literals = FTS.literals_for(*words)
-      search   = [search, *literals].join(' ')
+      search   = [literals, search].join(' ')
 
       text   = options.delete(:text) || Index.default_collection_name.to_s
       limit  = [Integer(options.delete(:limit) || 128), 1].max
@@ -262,20 +262,51 @@ module Mongoid
 
       belongs_to(:context, :polymorphic => true)
 
+      field(:literals, :type => Array)
+
       field(:literal_title, :type => String)
       field(:title, :type => String)
+
       field(:literal_keywords, :type => Array)
       field(:keywords, :type => Array)
+
       field(:fulltext, :type => String)
 
       index(
-        {:context_type => 1, :context_id => 1},
-        {:unique => true, :sparse => true}
+        {
+          :context_type => 1,
+          :context_id   => 1
+        },
+
+        {
+          :unique => true,
+          :sparse => true
+        }
       )
 
       index(
-        {:context_type => 1, :literal_title => 'text', :title => 'text', :literal_keywords => 'text', :keywords => 'text', :fulltext => 'text'},
-        {:weights => { :literal_title => 100, :title => 90, :literal_keywords => 60, :keywords => 50, :fulltext => 10 }, :name => 'search_index'}
+        {
+          :context_type     => 1,
+          :literals         => 'text',
+          :literal_title    => 'text',
+          :title            => 'text',
+          :literal_keywords => 'text',
+          :keywords         => 'text',
+          :fulltext         => 'text'
+        },
+
+        {
+          :name => 'search_index',
+
+          :weights => {
+            :literals         => 200,
+            :literal_title    => 100,
+            :title            => 90,
+            :literal_keywords => 60,
+            :keywords         => 50,
+            :fulltext         => 1
+          }
+        }
       )
 
       before_validation do |index|
@@ -301,16 +332,24 @@ module Mongoid
       def normalize!
         index = self
 
-        unless [index.keywords].join.strip.empty?
-          index.keywords = FTS.list_of_strings(index.keywords)
+        unless [index.literals].join.strip.empty?
+          index.literals = FTS.list_of_strings(index.literals)
         end
 
         unless [index.title].join.strip.empty?
           index.title = index.title.to_s.strip
         end
 
+        unless [index.literal_title].join.strip.empty?
+          index.literal_title = index.literal_title.to_s.strip
+        end
+
         unless [index.keywords].join.strip.empty?
-          index.keywords = index.keywords.map{|keyword| keyword.strip}
+          index.keywords = FTS.list_of_strings(index.keywords)
+        end
+
+        unless [index.literal_keywords].join.strip.empty?
+          index.literal_keywords = FTS.list_of_strings(index.literal_keywords)
         end
 
         unless [index.fulltext].join.strip.empty?
@@ -319,6 +358,10 @@ module Mongoid
 
       ensure
         @normalized = true
+      end
+
+      def inspect(*args, &block)
+        Map.for(as_document).inspect(*args, &block)
       end
 
       def Index.teardown!
@@ -351,12 +394,18 @@ module Mongoid
         models.each{|model| add(model)}
       end
 
-      def Index.add(model)
+      def Index.add!(model)
         to_search = Index.to_search(model)
 
-        title    = to_search.has_key?(:title) ?  Coerce.string(to_search[:title]) : nil
-        keywords = to_search.has_key?(:keywords) ?  Coerce.list_of_strings(to_search[:keywords]) : nil
-        fulltext = to_search.has_key?(:fulltext) ?  Coerce.string(to_search[:fulltext]) : nil
+        literals         = to_search.has_key?(:literals) ?  Coerce.list_of_strings(to_search[:literals]) : nil
+
+        title            = to_search.has_key?(:title) ?  Coerce.string(to_search[:title]) : nil
+        literal_title    = to_search.has_key?(:literal_title) ?  Coerce.string(to_search[:literal_title]) : nil
+
+        keywords         = to_search.has_key?(:keywords) ?  Coerce.list_of_strings(to_search[:keywords]) : nil
+        literal_keywords = to_search.has_key?(:literal_keywords) ?  Coerce.list_of_strings(to_search[:literal_keywords]) : nil
+
+        fulltext         = to_search.has_key?(:fulltext) ?  Coerce.string(to_search[:fulltext]) : nil
 
         context_type = model.class.name.to_s
         context_id   = model.id
@@ -367,13 +416,19 @@ module Mongoid
         }
 
         attributes = {
-          :title        => title,
-          :keywords     => keywords,
-          :fulltext     => fulltext
+          :literals         => literals,
+
+          :title            => title,
+          :literal_title    => literal_title,
+
+          :keywords         => keywords,
+          :literal_keywords => literal_keywords,
+
+          :fulltext         => fulltext
         }
 
         index = nil
-        n = 3
+        n = 42
 
         n.times do |i|
           index = where(conditions).first
@@ -402,29 +457,55 @@ module Mongoid
         index
       end
 
-      def Index.remove(model)
-        context_type = model.class.name.to_s
-        context_id = model.id
+      def Index.add(*args, &block)
+        begin
+          add!(*args, &block)
+        rescue Object
+          false
+        end
+      end
 
-        conditions = {
-          :context_type => context_type,
-          :context_id   => context_id
-        }
+      def Index.remove!(*args, &block)
+        options = args.extract_options!.to_options!
+        models = args.flatten.compact
 
-        where(conditions).first.tap do |index|
-          if index
-            index.destroy rescue nil
-          end
+        model_ids = {}
+
+        models.each do |model|
+          model_name = model.class.name.to_s
+          model_ids[model_name] ||= []
+          model_ids[model_name].push(model.id)
+        end
+
+        conditions = model_ids.map do |model_name, model_ids|
+          {:context_type => model_name, :context_id.in => model_ids}
+        end
+
+        any_of(conditions).destroy_all
+      end
+
+      def Index.remove(*args, &block)
+        begin
+          remove!(*args, &block)
+        rescue Object
+          false
         end
       end
 
       def Index.to_search(model)
+      #
         to_search = nil
 
+      #
         if model.respond_to?(:to_search)
           to_search = Map.for(model.to_search)
         else
           to_search = Map.new
+
+          to_search[:literals] =
+            %w( id ).map do |attr|
+              model.send(attr) if model.respond_to?(attr)
+            end
 
           to_search[:title] =
             %w( title ).map do |attr|
@@ -442,22 +523,29 @@ module Mongoid
             end
         end
 
-        unless %w( title keywords fulltext ).detect{|key| to_search.has_key?(key)}
+      #
+        unless %w( literals title keywords fulltext ).detect{|key| to_search.has_key?(key)}
           raise ArgumentError, "you need to define #{ model }#to_search"
         end
 
-        title = FTS.normalized_array(to_search[:title])
+      #
+        literals = FTS.normalized_array(to_search[:literals])
+        title    = FTS.normalized_array(to_search[:title])
         keywords = FTS.normalized_array(to_search[:keywords])
         fulltext = FTS.normalized_array(to_search[:fulltext])
 
-        to_search[:literal_title] = FTS.literals_for(title).join(' ').strip
-        to_search[:title] = title.join(' ').strip
+      #
+        to_search[:literals]         = FTS.literals_for(literals)
+
+        to_search[:literal_title]    = FTS.literals_for(title).join(' ').strip
+        to_search[:title]            = title.join(' ').strip
 
         to_search[:literal_keywords] = FTS.literals_for(keywords).join(' ').strip
-        to_search[:keywords] = keywords.join(' ').strip
+        to_search[:keywords]         = keywords.join(' ').strip
 
-        to_search[:fulltext] = fulltext.join(' ').strip
+        to_search[:fulltext]         = fulltext.join(' ').strip
 
+      #
         to_search
       end
     end
@@ -471,13 +559,34 @@ module Mongoid
 
       words.map do |word|
         next if word.empty?
-        without_delimeters = word.to_s.scan(/[0-9a-zA-Z]/).join
-        literal = "__#{ without_delimeters }__"
+        if word =~ /\A__.*__\Z/
+          word
+        else
+          without_delimeters = word.to_s.scan(/[0-9a-zA-Z]/).join
+          literal = "__#{ without_delimeters }__"
+          literal
+        end
       end.compact
     end
 
-    def FTS.index
-      Index
+    def FTS.index(*args, &block)
+      if args.empty? and block.nil?
+        Index
+      else
+        Index.add(*args, &block)
+      end
+    end
+
+    def FTS.unindex(*args, &block)
+      Index.remove(*args, &block)
+    end
+
+    def FTS.index!(*args, &block)
+      Index.add!(*args, &block)
+    end
+
+    def FTS.unindex!(*args, &block)
+      Index.remove!(*args, &block)
     end
 
   #
