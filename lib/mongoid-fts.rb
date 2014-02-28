@@ -1,7 +1,7 @@
 module Mongoid
   module FTS
   #
-    const_set(:Version, '1.0.0') unless const_defined?(:Version)
+    const_set(:Version, '1.1.0') unless const_defined?(:Version)
 
     class << FTS
       def version

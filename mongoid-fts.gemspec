@@ -3,13 +3,15 @@
 
 Gem::Specification::new do |spec|
   spec.name = "mongoid-fts"
-  spec.version = "1.0.0"
+  spec.version = "1.1.0"
   spec.platform = Gem::Platform::RUBY
   spec.summary = "mongoid-fts"
   spec.description = "enable mongodb's new fulltext simply and quickly on your mongoid models, including pagination."
+  spec.license = "same as ruby's"
 
   spec.files =
-["README.md",
+["LICENSE",
+ "README.md",
  "Rakefile",
  "lib",
  "lib/app",
