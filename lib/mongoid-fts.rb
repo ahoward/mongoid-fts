@@ -135,6 +135,7 @@ module Mongoid
         _denormalize!
         @page = 1
         @per = size
+        @num_pages = 1
       end
 
       def paginate(*args)
@@ -145,6 +146,7 @@ module Mongoid
 
         @page = [page.abs, 1].max
         @per = [per.abs, 1].max
+        @num_pages = (size.to_f / @per).ceil
 
         offset = (@page - 1) * @per
         length = @per 
@@ -181,7 +183,7 @@ module Mongoid
       end
 
       def num_pages
-        (size.to_f / per).ceil
+        @num_pages
       end
 
       def total_pages
