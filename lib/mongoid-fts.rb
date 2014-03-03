@@ -1,7 +1,7 @@
 module Mongoid
   module FTS
   #
-    const_set(:Version, '1.1.0') unless const_defined?(:Version)
+    const_set(:Version, '1.1.1') unless const_defined?(:Version)
 
     class << FTS
       def version
@@ -139,10 +139,17 @@ module Mongoid
       end
 
       def paginate(*args)
+        results = self
         options = Map.options_for!(args)
 
         page = Integer(args.shift || options[:page] || @page)
-        per = Integer(args.shift || options[:per] || options[:size] || @per)
+        per = args.shift || options[:per] || options[:size]
+
+        if per.nil?
+          return Promise.new(results, page)
+        else
+          per = Integer(per)
+        end
 
         @page = [page.abs, 1].max
         @per = [per.abs, 1].max
@@ -156,6 +163,20 @@ module Mongoid
         replace(slice)
 
         self
+      end
+
+      class Promise
+        attr_accessor :results
+        attr_accessor :page
+
+        def initialize(results, page)
+          @results = results
+          @page = page
+        end
+
+        def per(per)
+          results.per(:page => page, :per => per)
+        end
       end
 
       def page(*args)
