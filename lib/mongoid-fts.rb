@@ -1,7 +1,7 @@
 module Mongoid
   module FTS
   #
-    const_set(:Version, '1.1.1') unless const_defined?(:Version)
+    const_set(:Version, '2.0.0') unless const_defined?(:Version)
 
     class << FTS
       def version
@@ -10,9 +10,10 @@ module Mongoid
 
       def dependencies
         {
-          'mongoid'       => [ 'mongoid'       , '~> 3.1' ] ,
-          'map'           => [ 'map'           , '~> 6.5' ] ,
-          'coerce'        => [ 'coerce'        , '~> 0.0' ] ,
+          'mongoid'       => [ 'mongoid'       , '>= 3' ] ,
+          'map'           => [ 'map'           , '>= 6' ] ,
+          'coerce'        => [ 'coerce'        , '>= 0' ] ,
+          'unicode_utils' => [ 'unicode_utils' , '>= 1' ] ,
         }
       end
 
@@ -36,6 +37,8 @@ module Mongoid
       end
     end
 
+    require 'digest/md5'
+
     begin
       require 'rubygems'
     rescue LoadError
@@ -55,6 +58,22 @@ module Mongoid
       nil
     end
 
+    begin
+      require 'fast_stemmer'
+    rescue LoadError
+      begin
+        require 'stemmer'
+      rescue LoadError
+        abort("mongoid-haystack requires either the 'fast-stemmer' or 'ruby-stemmer' gems")
+      end
+    end
+
+    require 'unicode_utils/u'
+    require 'unicode_utils/each_word'
+
+    load FTS.libdir('stemming.rb')
+    load FTS.libdir('util.rb')
+
   #
     class Error < ::StandardError; end
 
@@ -68,19 +87,58 @@ module Mongoid
     end
 
     def FTS._search(*args)
+    #
       options = Map.options_for!(args)
 
+    #
+      literals = FTS.literals_for(options[:literals], options[:literal]) 
+
+      terms = FTS.terms_for(options[:terms], options[:term], args) 
+
+    #
+      operator =
+        case
+          when options[:all] || options[:operator].to_s == 'and'
+            :and
+          when options[:any] || options[:operator].to_s == 'or'
+            :or
+          else
+            :and
+        end
+
+    #
+      searches = Coerce.list_of_strings(literals, terms)
+
+      search =
+        case operator
+          when :and
+            searches.map{|s| '"%s"' % s.gsub('"', '')}.join(' ')
+          when :or
+            searches.join(' ')
+        end
+
+=begin
       search   = args.join(' ')
       words    = search.strip.split(/\s+/)
-      literals = FTS.literals_for(*words)
-      search   = [literals, search].join(' ')
 
+      if literals.empty?
+        #literals = FTS.literals_for(*words)
+      end
+
+      search   = Coerce.list_of_strings(literals, search).map{|s| '"%s"' % s.gsub('"', '')}.join(' ')
+=end
+
+puts "search: #{ search }"
+
+    #
       text   = options.delete(:text) || Index.default_collection_name.to_s
       limit  = [Integer(options.delete(:limit) || 128), 1].max
       models = [options.delete(:models), options.delete(:model)].flatten.compact
 
+    #
       models = FTS.models if models.empty?
 
+    #
       _searches =
         models.map do |model|
           context_type = model.name.to_s
@@ -107,6 +165,7 @@ module Mongoid
           end
         end
 
+    #
       Raw.new(_searches, :_search => search, :_text => text, :_limit => limit, :_models => models)
     end
 
@@ -244,6 +303,7 @@ module Mongoid
         results.flatten!
         results.compact!
 
+=begin
         results.sort! do |a, b|
           score = Float(b['score']) <=> Float(a['score'])
 
@@ -254,6 +314,7 @@ module Mongoid
               score
           end
         end
+=end
 
       #
         batches = Hash.new{|h,k| h[k] = []}
@@ -268,6 +329,42 @@ module Mongoid
 
       #
         models = FTS.find_in_batches(batches)
+
+      #
+        result_index = {}
+
+        results.each do |result|
+          context_type = result['obj']['context_type'].to_s
+          context_id = result['obj']['context_id'].to_s
+          key = [context_type, context_id]
+
+          result_index[key] = result
+        end
+
+      #
+        models.each do |model|
+          context_type = model.class.name.to_s
+          context_id = model.id.to_s
+          key = [context_type, context_id]
+
+          result = result_index[key]
+          model['_fts_index'] = result
+        end
+
+      #
+        models.sort! do |model_a, model_b|
+          a = model_a['_fts_index']
+          b = model_b['_fts_index']
+
+          score = Float(b['score']) <=> Float(a['score'])
+
+          case score
+            when 0
+              a['_position'] <=> b['_position']
+            else
+              score
+          end
+        end
 
       #
         limit = @_searches._limit
@@ -310,11 +407,15 @@ module Mongoid
       index(
         {
           :context_type     => 1,
+
           :literals         => 'text',
+
           :literal_title    => 'text',
           :title            => 'text',
+
           :literal_keywords => 'text',
           :keywords         => 'text',
+
           :fulltext         => 'text'
         },
 
@@ -323,10 +424,13 @@ module Mongoid
 
           :weights => {
             :literals         => 200,
+
             :literal_title    => 100,
             :title            => 90,
+
             :literal_keywords => 60,
             :keywords         => 50,
+
             :fulltext         => 1
           }
         }
@@ -481,11 +585,7 @@ module Mongoid
       end
 
       def Index.add(*args, &block)
-        begin
-          add!(*args, &block)
-        rescue Object
-          false
-        end
+        add!(*args, &block)
       end
 
       def Index.remove!(*args, &block)
@@ -508,11 +608,7 @@ module Mongoid
       end
 
       def Index.remove(*args, &block)
-        begin
-          remove!(*args, &block)
-        rescue Object
-          false
-        end
+        remove!(*args, &block)
       end
 
       def Index.to_search(model)
@@ -547,8 +643,17 @@ module Mongoid
         end
 
       #
-        unless %w( literals title keywords fulltext ).detect{|key| to_search.has_key?(key)}
-          raise ArgumentError, "you need to define #{ model }#to_search"
+        required = %w( literals title keywords fulltext )
+        actual = to_search.keys
+
+        missing = required - actual
+        unless missing.empty?
+          raise ArgumentError, "#{ model.class.inspect }#to_search missing keys #{ missing.inspect }"
+        end
+
+        invalid = actual - required
+        unless invalid.empty?
+          raise ArgumentError, "#{ model.class.inspect }#to_search invalid keys #{ invalid.inspect }"
         end
 
       #
@@ -557,17 +662,22 @@ module Mongoid
         keywords = FTS.normalized_array(to_search[:keywords])
         fulltext = FTS.normalized_array(to_search[:fulltext])
 
+# TODO
       #
         to_search[:literals]         = FTS.literals_for(literals)
 
         to_search[:literal_title]    = FTS.literals_for(title).join(' ').strip
-        to_search[:title]            = title.join(' ').strip
+        #to_search[:title]            = title.join(' ').strip
+        to_search[:title]            = Util.terms_for(title).join(' ').strip
 
         to_search[:literal_keywords] = FTS.literals_for(keywords).join(' ').strip
-        to_search[:keywords]         = keywords.join(' ').strip
+        #to_search[:keywords]         = keywords.join(' ').strip
+        to_search[:keywords]         = Util.terms_for(keywords).join(' ').strip
 
-        to_search[:fulltext]         = fulltext.join(' ').strip
+        #to_search[:fulltext]         = fulltext.join(' ').strip
+        to_search[:fulltext]         = Util.terms_for(fulltext, :subterms => true).join(' ').strip
 
+p :to_search => to_search
       #
         to_search
       end
@@ -577,7 +687,11 @@ module Mongoid
       array.flatten.map{|_| _.to_s.strip}.select{|_| !_.empty?}
     end
 
-    def FTS.literals_for(*words)
+    def FTS.literals_for(*args)
+      words = FTS.normalized_array(args)
+      return words.map{|word| Digest::MD5.hexdigest(word)}
+
+=begin
       words = words.join(' ').strip.split(/\s+/)
 
       words.map do |word|
@@ -590,6 +704,7 @@ module Mongoid
           literal
         end
       end.compact
+=end
     end
 
     def FTS.index(*args, &block)
@@ -639,7 +754,7 @@ module Mongoid
           end
 
           after_save do |model|
-            FTS::Index.add(model) rescue nil
+            FTS::Index.add(model)
           end
 
           after_destroy do |model|
@@ -734,6 +849,11 @@ module Mongoid
         end
       end
     end
+
+    def FTS.setup!(*args)
+      enable!(*args)
+      Index.setup!
+    end
   end
 
   Fts = FTS
@@ -753,6 +873,10 @@ end
 
 
 =begin
+
+  http://docs.mongodb.org/manual/reference/operator/query/text/
+
+  http://docs.mongodb.org/v2.4/reference/command/text/
 
   Model.mongo_session.command(text: "collection_name", search: "my search string", filter: { ... }, project: { ... }, limit: 10, language: "english")
 
