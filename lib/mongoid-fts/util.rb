@@ -58,6 +58,10 @@ module Mongoid
         end
       end
 
+      def utf8ify(string)
+        string.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '')
+      end
+
       def terms_for(*args, &block)
         options = Map.options_for!(args)
 
@@ -101,7 +105,10 @@ module Mongoid
         list = []
 
         UnicodeUtils.each_word(string) do |word|
+          word = utf8ify(word)
+
           strip!(word)
+
           next if word.empty?
 
           block ? block.call(word) : list.push(word)
@@ -122,15 +129,23 @@ module Mongoid
       def stems_for(*args, &block)
         options = Map.options_for!(args)
 
-        Stemming.stem(*args, &block)
+        words = Coerce.list_of_strings(*args)
+
+        words.map! do |word|
+          word = utf8ify(word)
+        end
+
+        Stemming.stem(*words)
       end
 
       def stopword?(word)
+        word = utf8ify(word)
         word = UnicodeUtils.nfkd(word.to_s.strip.downcase)
         word.empty? or Stemming::Stopwords.stopword?(word)
       end
 
       def strip!(word)
+        word = utf8ify(word)
         word.replace(UnicodeUtils.nfkd(word.to_s.strip))
         word.gsub!(/\A(?:[^\w]|_|\s)+/, '')  # leading punctuation/spaces
         word.gsub!(/(?:[^\w]|_|\s+)+\Z/, '') # trailing punctuation/spaces

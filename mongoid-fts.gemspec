@@ -3,7 +3,7 @@
 
 Gem::Specification::new do |spec|
   spec.name = "mongoid-fts"
-  spec.version = "1.1.1"
+  spec.version = "2.0.0"
   spec.platform = Gem::Platform::RUBY
   spec.summary = "mongoid-fts"
   spec.description = "enable mongodb's new fulltext simply and quickly on your mongoid models, including pagination."
@@ -13,14 +13,38 @@ Gem::Specification::new do |spec|
 ["LICENSE",
  "README.md",
  "Rakefile",
+ "c.rb",
  "lib",
  "lib/app",
  "lib/app/mongoid",
  "lib/app/mongoid/fts",
  "lib/app/mongoid/fts/index.rb",
  "lib/mongoid",
+ "lib/mongoid-fts",
  "lib/mongoid-fts.rb",
- "mongoid-fts.gemspec"]
+ "lib/mongoid-fts/stemming",
+ "lib/mongoid-fts/stemming.rb",
+ "lib/mongoid-fts/stemming/stopwords",
+ "lib/mongoid-fts/stemming/stopwords/english.txt",
+ "lib/mongoid-fts/stemming/stopwords/extended_english.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_danish.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_dutch.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_english.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_finnish.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_french.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_german.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_italian.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_norwegian.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_portuguese.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_russian.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_russiankoi8_r.txt",
+ "lib/mongoid-fts/stemming/stopwords/full_spanish.txt",
+ "lib/mongoid-fts/util.rb",
+ "mongoid-fts.gemspec",
+ "test",
+ "test/helper.rb",
+ "test/mongoid-fts_test.rb",
+ "test/testing.rb"]
 
   spec.executables = []
   
@@ -29,11 +53,13 @@ Gem::Specification::new do |spec|
   spec.test_files = nil
 
   
-    spec.add_dependency(*["mongoid", "~> 3.1"])
+    spec.add_dependency(*["mongoid", ">= 3"])
   
-    spec.add_dependency(*["map", "~> 6.5"])
+    spec.add_dependency(*["map", ">= 6"])
   
-    spec.add_dependency(*["coerce", "~> 0.0"])
+    spec.add_dependency(*["coerce", ">= 0"])
+  
+    spec.add_dependency(*["unicode_utils", ">= 1"])
   
 
   spec.extensions.push(*[])
