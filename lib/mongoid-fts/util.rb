@@ -59,7 +59,11 @@ module Mongoid
       end
 
       def utf8ify(string)
-        string.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '')
+        begin
+          string.force_encoding('UTF-8')
+        rescue
+          string.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '')
+        end
       end
 
       def terms_for(*args, &block)
