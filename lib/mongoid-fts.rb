@@ -91,9 +91,9 @@ module Mongoid
       options = Map.options_for!(args)
 
     #
-      literals = FTS.literals_for(options[:literals], options[:literal]) 
+      literals = FTS.literals_for(options[:literals], options[:literal])
 
-      terms = FTS.terms_for(options[:terms], options[:term], args) 
+      terms = FTS.terms_for(options[:terms], options[:searches], options[:term], options[:search], args)
 
     #
       operator =
@@ -126,9 +126,9 @@ module Mongoid
       end
 
       search   = Coerce.list_of_strings(literals, search).map{|s| '"%s"' % s.gsub('"', '')}.join(' ')
+puts "search: #{ search }"
 =end
 
-puts "search: #{ search }"
 
     #
       text   = options.delete(:text) || Index.default_collection_name.to_s
@@ -140,28 +140,32 @@ puts "search: #{ search }"
 
     #
       _searches =
-        models.map do |model|
-          context_type = model.name.to_s
-          
-          cmd = Hash.new
+        if search.strip.empty?
+          []
+        else
+          models.map do |model|
+            context_type = model.name.to_s
+            
+            cmd = Hash.new
 
-          cmd[:text] ||= text
+            cmd[:text] ||= text
 
-          cmd[:limit] ||= limit
+            cmd[:limit] ||= limit
 
-          (cmd[:search] ||= '') << search
+            (cmd[:search] ||= '') << search
 
-          cmd[:project] ||= {'_id' => 1, 'context_type' => 1, 'context_id' => 1}
+            cmd[:project] ||= {'_id' => 1, 'context_type' => 1, 'context_id' => 1}
 
-          cmd[:filter] ||= {'context_type' => context_type}
+            cmd[:filter] ||= {'context_type' => context_type}
 
-          options.each do |key, value|
-            cmd[key] = value
-          end
+            options.each do |key, value|
+              #cmd[key] = value
+            end
 
-          Map.for(session.command(cmd)).tap do |_search|
-            _search[:_model] = model
-            _search[:_cmd] = cmd
+            Map.for(session.command(cmd)).tap do |_search|
+              _search[:_model] = model
+              _search[:_cmd] = cmd
+            end
           end
         end
 
@@ -677,7 +681,7 @@ puts "search: #{ search }"
         #to_search[:fulltext]         = fulltext.join(' ').strip
         to_search[:fulltext]         = Util.terms_for(fulltext, :subterms => true).join(' ').strip
 
-p :to_search => to_search
+#p :to_search => to_search
       #
         to_search
       end
@@ -689,7 +693,7 @@ p :to_search => to_search
 
     def FTS.literals_for(*args)
       words = FTS.normalized_array(args)
-      return words.map{|word| Digest::MD5.hexdigest(word)}
+      return words.map{|word| "__#{ Digest::MD5.hexdigest(word) }__"}
 
 =begin
       words = words.join(' ').strip.split(/\s+/)
