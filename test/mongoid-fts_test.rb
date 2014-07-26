@@ -43,9 +43,9 @@ Testing Mongoid::FTS do
     assert{ Mongoid::FTS.index(a) }
     assert{ Mongoid::FTS.index(b) }
 
-    Mongoid::FTS.search('dog') == [a]
     assert{ Mongoid::FTS.search('dog') == [a] }
     assert{ Mongoid::FTS.search('cat') == [b] }
+    assert{ Mongoid::FTS.search('Cat') == [b] }
   end
 
 #

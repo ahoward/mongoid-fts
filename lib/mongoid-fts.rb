@@ -97,11 +97,6 @@ module Mongoid
       fuzzy = Coerce.list_of_strings(options[:fuzzy])
 
     #
-      if fuzzy.empty?
-        fuzzy = terms 
-      end
-
-    #
       operator =
         case
           when options[:all] || options[:operator].to_s == 'and'
@@ -119,6 +114,11 @@ module Mongoid
           else
             :and
         end
+
+    #
+      if fuzzy.empty?
+        fuzzy = terms 
+      end
 
     #
       searches = []
@@ -141,7 +141,7 @@ module Mongoid
       searches.push(search)
 
     #
-      search = FTS.boolean_and(FTS.fuzzy_for(fuzzy))
+      search = FTS.boolean_or(FTS.fuzzy_for(fuzzy))
       searches.push(search)
 
     #

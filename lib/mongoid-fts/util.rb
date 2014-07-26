@@ -92,6 +92,7 @@ module Mongoid
         list = options[:list] || []
 
         words.each do |word|
+          word = word.downcase
           next if stopword?(word)
 
           stems = stems_for(word)

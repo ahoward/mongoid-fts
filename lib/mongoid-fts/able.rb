@@ -4,7 +4,7 @@ module Mongoid
       def Able.code
         @code ||= proc do
           class << self
-            def search(*args, &block)
+            def fts_search(*args, &block)
               options = Map.options_for!(args)
 
               options[:model] = self
@@ -13,8 +13,9 @@ module Mongoid
 
               FTS.search(*args, &block)
             end
+            alias :search :fts_search
 
-            def _search(*args, &block)
+            def _fts_search(*args, &block)
               options = Map.options_for!(args)
 
               options[:model] = self
@@ -23,6 +24,7 @@ module Mongoid
 
               FTS.search(*args, &block)
             end
+            alias :_search :_fts_search
           end
 
           after_save do |model|
@@ -33,7 +35,7 @@ module Mongoid
             FTS::Index.remove(model) rescue nil
           end
 
-          has_one(:search_index, :as => :context, :class_name => '::Mongoid::FTS::Index')
+          has_one(:fts_index, :as => :context, :class_name => '::Mongoid::FTS::Index')
         end
       end
 
