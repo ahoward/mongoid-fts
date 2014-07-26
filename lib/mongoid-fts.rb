@@ -51,7 +51,7 @@ module Mongoid
 
     if defined?(gem)
       dependencies.each do |lib, dependency|
-        gem(*dependency)
+        #gem(*dependency)
         require(lib)
       end
     end
