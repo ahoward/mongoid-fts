@@ -11,12 +11,12 @@ module Mongoid
 
       def dependencies
         {
-          'mongoid'       => [ 'mongoid'       , '>= 3.1' ] ,
-          'map'           => [ 'map'           , '>= 6.5' ] ,
-          'coerce'        => [ 'coerce'        , '>= 0.0' ] ,
-          'unicode_utils' => [ 'unicode_utils' , '>= 1.4' ] ,
-          'stringex'      => [ 'stringex'      , '>= 2.0' ] ,
-          'fast_stemmer'  => [ 'fast-stemmer'  , '>= 1.0' ] ,
+          'mongoid'       => [ 'mongoid'       , '~> 3.1' ] ,
+          'map'           => [ 'map'           , '~> 6.5' ] ,
+          'coerce'        => [ 'coerce'        , '~> 0.0' ] ,
+          'unicode_utils' => [ 'unicode_utils' , '~> 1.4' ] ,
+          'stringex'      => [ 'stringex'      , '~> 2.0' ] ,
+          'fast_stemmer'  => [ 'fast-stemmer'  , '~> 1.0' ] ,
         }
       end
 
