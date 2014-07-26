@@ -208,12 +208,12 @@ module Mongoid
 
       def chars(string)
         chars = []
-        UnicodeUtils.each_grapheme(string){|g| chars.push(g)}
+        UnicodeUtils.each_grapheme(string.to_s){|g| chars.push(g)}
         chars
       end
 
       def unidecode(string)
-        Stringex::Unidecoder.decode(utf8ify(string))
+        Stringex::Unidecoder.decode(utf8ify(string.to_s))
       end
 
       def utf8ify(string)
