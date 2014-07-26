@@ -18,7 +18,6 @@ Gem::Specification::new do |spec|
  "lib/app/mongoid",
  "lib/app/mongoid/fts",
  "lib/app/mongoid/fts/index.rb",
- "lib/mongoid",
  "lib/mongoid-fts",
  "lib/mongoid-fts.rb",
  "lib/mongoid-fts/able.rb",
