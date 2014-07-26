@@ -13,7 +13,6 @@ Gem::Specification::new do |spec|
 ["LICENSE",
  "README.md",
  "Rakefile",
- "c.rb",
  "lib",
  "lib/app",
  "lib/app/mongoid",
@@ -22,6 +21,12 @@ Gem::Specification::new do |spec|
  "lib/mongoid",
  "lib/mongoid-fts",
  "lib/mongoid-fts.rb",
+ "lib/mongoid-fts/able.rb",
+ "lib/mongoid-fts/error.rb",
+ "lib/mongoid-fts/index.rb",
+ "lib/mongoid-fts/rails.rb",
+ "lib/mongoid-fts/raw.rb",
+ "lib/mongoid-fts/results.rb",
  "lib/mongoid-fts/stemming",
  "lib/mongoid-fts/stemming.rb",
  "lib/mongoid-fts/stemming/stopwords",
@@ -53,13 +58,17 @@ Gem::Specification::new do |spec|
   spec.test_files = nil
 
   
-    spec.add_dependency(*["mongoid", ">= 3"])
+    spec.add_dependency(*["mongoid", ">= 3.1"])
   
-    spec.add_dependency(*["map", ">= 6"])
+    spec.add_dependency(*["map", ">= 6.5"])
   
-    spec.add_dependency(*["coerce", ">= 0"])
+    spec.add_dependency(*["coerce", ">= 0.0"])
   
-    spec.add_dependency(*["unicode_utils", ">= 1"])
+    spec.add_dependency(*["unicode_utils", ">= 1.4"])
+  
+    spec.add_dependency(*["stringex", ">= 2.0"])
+  
+    spec.add_dependency(*["fast-stemmer", ">= 1.0"])
   
 
   spec.extensions.push(*[])

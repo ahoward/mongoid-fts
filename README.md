@@ -1,20 +1,32 @@
 NAME
 ------------------
 
-  mongoid-fts.rb
+mongoid-fts.rb
 
 DESCRIPTION
 ------------------
 
 enable mongodb's new fulltext simply and quickly on your mongoid models.
 
-supports
+mongodb's built-in fulltext is handy, but has several warts which make it
+difficult to use in real projects:
 
-* pagination
-* strict literal searching (including stopwords)
-* cross models searching
-* index is automatically kept in sync
-* customize ranking with #to_search
+- queries are boolean OR by default, meaning a user typing more and more
+  specific search queries gets back less and less specific search results
+- lack of limit+offset on queries, making pagination a beast
+- lack of substring/fuzzy search
+- lack of literal search (find by id, uuid, etc. without hitting stemming/stopword functionality)
+- ability to search across collections
+
+mongoid-fts smoothes over these warts, and more, for your mongoid 3 and 4
+projects supporting:
+
+- pagination
+- strict literal searching (including stopwords)
+- cross models searching
+- index is automatically kept in sync
+- customize ranking with #to_search
+- fuzzy search (title and keywords included by default)
 
 INSTALL
 ------------------
@@ -51,7 +63,7 @@ SYNOPSIS
 #
   class A
     include Mongoid::Document
-    include Mongoid::FTS
+    include Mongoid::FTS::Able
 
     field(:title)
     field(:keywords, :type => Array)
@@ -63,14 +75,14 @@ SYNOPSIS
 
   class B
     include Mongoid::Document
-    include Mongoid::FTS
+    include Mongoid::FTS::Able
 
     field(:a)
     field(:b, :type => Array, :default => [])
     field(:c)
 
     def to_search
-      {:literals => [id, sku], :title => a, :keywords => (b + ['foobar']), :fulltext => c}
+      {:literals => [id, sku], :title => a, :keywords => (b + ['foobar']), :fuzzy => [a, b], :fulltext => c}
     end
   end
 

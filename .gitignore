@@ -1,4 +1,5 @@
 .glimpse*
+pkg/
 .todo
 a.rb
 b.rb
