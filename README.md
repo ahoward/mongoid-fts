@@ -82,7 +82,13 @@ SYNOPSIS
     field(:c)
 
     def to_search
-      {:literals => [id, sku], :title => a, :keywords => (b + ['foobar']), :fuzzy => [a, b], :fulltext => c}
+      {
+        :literals => [id, sku],
+        :title => a,
+        :keywords => (b + ['foobar']),
+        :fuzzy => [a, b],
+        :fulltext => c
+      }
     end
   end
 
@@ -95,12 +101,14 @@ SYNOPSIS
 
   p A.search('cat').size #=> 2
 
+  p A.search(:literal => A.first.id).size #=> 1
+
 # you can to cross-model searches like so
 #
   p Mongoid::FTS.search('cat', :models => [A, B])
   p Mongoid::FTS.search('dog', :models => [A, B])
 
-# pagination is supported with an ugly hack
+# pagination is supported
 
   A.search('cats').page(10).per(3)
 
@@ -121,11 +129,8 @@ SYNOPSIS
 
 ````
 
-the implementation has a temporary work around for pagination, see
-
-  https://groups.google.com/forum/#!topic/mongodb-user/2hUgOAN4KKk
-
-for details
+- this implementation has a work around for fulltext pagination, ref: https://groups.google.com/forum/#!topic/mongodb-user/2hUgOAN4KKk
+- this implementation has a work around for the lack of logical and ref: https://groups.google.com/forum/#!topic/mongodb-user/2hUgOAN4KKk
 
 regardless, the *interface* of this mixin is uber simple and should be quite
 future proof.  as the mongodb teams moves search forward i'll track the new

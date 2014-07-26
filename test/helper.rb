@@ -11,7 +11,7 @@ Mongoid::FTS.reset!
 
 class A
   include Mongoid::Document
-  include Mongoid::FTS::Able
+  include Mongoid::FTS
   field(:content, :type => String)
   def to_s; content; end
 
@@ -22,7 +22,7 @@ end
 
 class B
   include Mongoid::Document
-  include Mongoid::FTS::Able
+  include Mongoid::FTS
   field(:content, :type => String)
   def to_s; content; end
 
@@ -33,7 +33,7 @@ end
 
 class C
   include Mongoid::Document
-  include Mongoid::FTS::Able
+  include Mongoid::FTS
   field(:content, :type => String)
   def to_s; content; end
 

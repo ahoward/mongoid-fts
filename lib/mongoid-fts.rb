@@ -186,6 +186,11 @@ module Mongoid
         return raw if(i == last || !raw.empty?)
       end
     end
+
+    def FTS.included(other)
+      other.send(:include, Able)
+      super
+    end
   end
 
   Fts = FTS
